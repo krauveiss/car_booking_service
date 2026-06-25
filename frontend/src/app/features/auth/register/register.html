@@ -1,0 +1,34 @@
+<div class="auth-box">
+  <h2>Регистрация сотрудника</h2>
+  <form [formGroup]="registerForm" (ngSubmit)="onSubmit()">
+    <div class="form-group">
+      <label>Логин</label>
+      <input type="text" formControlName="username" />
+
+      @if (registerForm.controls.username.touched && registerForm.controls.username.invalid) {
+        <span class="error">Минимум 3 символа</span>
+      }
+    </div>
+    <div class="form-group">
+      <label>Пароль</label>
+      <input type="password" formControlName="password" />
+
+      @if (registerForm.controls.password.touched && registerForm.controls.password.invalid) {
+        <span class="error">Минимум 6 символов</span>
+      }
+    </div>
+    <div class="form-group">
+      <label>Подтверждение пароля</label>
+      <input type="password" formControlName="confirmPassword" />
+
+      @if (
+        registerForm.hasError('passwordMismatch') && registerForm.controls.confirmPassword.touched
+      ) {
+        <span class="error">Пароли не совпадают</span>
+      }
+    </div>
+    <button type="submit" [disabled]="registerForm.invalid">Создать аккаунт</button>
+  </form>
+
+  <p>Уже есть доступ? <a routerLink="/login">Войти</a></p>
+</div>

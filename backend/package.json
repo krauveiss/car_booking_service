@@ -1,0 +1,19 @@
+{
+  "name": "car-booking-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "sql.js": "^1.13.0"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}
