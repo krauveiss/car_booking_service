@@ -29,6 +29,11 @@
     </div>
     <button type="submit" [disabled]="registerForm.invalid">Создать аккаунт</button>
   </form>
+  @if (errorMessage()) {
+    <div class="api-error">
+      {{ errorMessage() }}
+    </div>
+  }
 
   <p>Уже есть доступ? <a routerLink="/login">Войти</a></p>
 </div>

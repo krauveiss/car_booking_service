@@ -1,0 +1,39 @@
+<div class="auth-box">
+  <h2>Вход в систему</h2>
+
+  <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+    <div class="form-group">
+      <label>Логин</label>
+      <input type="text" formControlName="username" />
+
+      @if (loginForm.controls.username.touched && loginForm.controls.username.invalid) {
+        <span class="error">Минимум 3 символа</span>
+      }
+    </div>
+
+    <div class="form-group">
+      <label>Пароль</label>
+      <input type="password" formControlName="password" />
+
+      @if (loginForm.controls.password.touched && loginForm.controls.password.invalid) {
+        <span class="error">Минимум 6 символов</span>
+      }
+    </div>
+
+    <button type="submit" [disabled]="loginForm.invalid || isLoading()">
+      @if (isLoading()) {
+        Вход...
+      } @else {
+        Войти
+      }
+    </button>
+  </form>
+
+  @if (errorMessage()) {
+    <div class="api-error">
+      {{ errorMessage() }}
+    </div>
+  }
+
+  <p>Еще нет аккаунта? <a routerLink="/register">Зарегистрироваться</a></p>
+</div>

@@ -1,15 +1,20 @@
-import { Component } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { Auth } from '../../../services/auth.service';
 
 @Component({
   selector: 'app-register',
   imports: [ReactiveFormsModule, RouterLink],
-  templateUrl: './register.html',
-  styleUrl: './register.scss',
+  templateUrl: './register.component.html',
+  styleUrl: './register.component.scss',
 })
 export class Register {
 
+  private authService = inject(Auth);
+
+  errorMessage = signal<string | null>(null);
+  isLoading = signal<boolean>(false);
   registerForm = new FormGroup(
     {
       username: new FormControl('', {
@@ -38,8 +43,18 @@ export class Register {
 
   onSubmit(): void {
     if (this.registerForm.valid) {
-      const data = this.registerForm.getRawValue();
-      console.log(data);
+      const { username, password } = this.registerForm.getRawValue();
+
+      this.authService.register({ username, password }).subscribe({
+        next: (response) => {
+          this.isLoading.set(true);
+          console.log("Успешный рег", response)
+        },
+        error: (err) => {
+          this.isLoading.set(false);
+          this.errorMessage.set(err.error?.message || "Ошибка");
+        }
+      })
     }
   }
 }

@@ -1,0 +1,94 @@
+$primary: #2563eb;
+$primary-hover: #1d4ed8;
+$danger: #ef4444;
+$danger-hover: #dc2626;
+$bg-main: #f3f4f6;
+$radius: 8px;
+
+.dashboard-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: $bg-main;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 32px;
+  background-color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+
+  .logo {
+    font-weight: 700;
+    font-size: 18px;
+    color: #1f2937;
+  }
+
+  .nav-actions {
+    display: flex;
+    gap: 12px;
+  }
+}
+
+.dashboard-content {
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  align-items: center;
+  padding: 32px;
+}
+
+.action-card {
+  text-align: center;
+  background: #ffffff;
+  padding: 48px;
+  border-radius: $radius;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  max-width: 450px;
+  width: 100%;
+
+  h1 {
+    margin: 0 0 8px 0;
+    font-size: 28px;
+    color: #1f2937;
+  }
+
+  p {
+    color: #6b7280;
+    margin-bottom: 32px;
+  }
+}
+
+button {
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  border: none;
+  border-radius: $radius;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+
+  &.btn-primary {
+    background-color: $primary;
+    color: #ffffff;
+    width: 100%;
+    padding: 14px;
+    font-size: 16px;
+    &:hover { background-color: $primary-hover; }
+  }
+
+  &.btn-secondary {
+    background-color: #f3f4f6;
+    color: #374151;
+    &:hover { background-color: #e5e7eb; }
+  }
+
+  &.btn-danger {
+    background-color: $danger;
+    color: #ffffff;
+    &:hover { background-color: $danger-hover; }
+  }
+}

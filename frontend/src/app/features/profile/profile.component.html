@@ -1,0 +1,55 @@
+<div class="profile-layout">
+  <div class="profile-card">
+    <div class="profile-header">
+      <button class="btn-back" routerLink="/dashboard">← Назад в панель</button>
+      <h2>Личный кабинет сотрудника</h2>
+    </div>
+
+    @if (isLoading()) {
+      <div class="loading-state">Загрузка данных профиля...</div>
+    } @else if (errorMessage()) {
+      <div class="error-state">
+        <p>{{ errorMessage() }}</p>
+        <button class="btn-retry" routerLink="/dashboard">Вернуться</button>
+      </div>
+    } @else if (profile(); as user) {
+      <div class="profile-body">
+        <div class="info-group">
+          <label>ID Аккаунта</label>
+          <div class="value">#{{ user.id }}</div>
+        </div>
+
+        <div class="info-group">
+          <label>Логин / Имя пользователя</label>
+          <div class="value">{{ user.username }}</div>
+        </div>
+
+        <div class="info-group">
+          <label>Должность</label>
+          <div class="value">{{ user.position || 'Не указана' }}</div>
+        </div>
+
+        <div class="info-group">
+          <label>Роль в системе</label>
+          <div class="value role-badge">{{ user.role }}</div>
+        </div>
+
+        <div class="info-group">
+          <label>Статус верификации</label>
+          <div class="value">
+            @if (user.accepted) {
+              <span class="status-badge success">Доступ подтвержден</span>
+            } @else {
+              <span class="status-badge warning">Ожидает подтверждения админом</span>
+            }
+          </div>
+        </div>
+
+        <div class="info-group">
+          <label>Дата регистрации</label>
+          <div class="value">{{ user.created_at | date: 'dd.MM.yyyy HH:mm' }}</div>
+        </div>
+      </div>
+    }
+  </div>
+</div>

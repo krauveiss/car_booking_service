@@ -1,0 +1,17 @@
+<div class="dashboard-layout">
+  <header class="dashboard-header">
+    <div class="logo">Бронирование корпоративного транспорта</div>
+    <div class="nav-actions">
+      <button class="btn-secondary" routerLink="/profile">Мой профиль</button>
+      <button class="btn-danger" (click)="onLogout()">Выйти</button>
+    </div>
+  </header>
+
+  <main class="dashboard-content">
+    <div class="action-card">
+      <h1>Добро пожаловать</h1>
+      <p>Доступ к корпоративным сервисам компании</p>
+      <button class="btn-primary" (click)="navigateToBooking()">Бронирование авто</button>
+    </div>
+  </main>
+</div>
