@@ -3,7 +3,7 @@ import { CanActivateFn, Router } from '@angular/router';
 import { catchError, map, of } from 'rxjs';
 import { Auth } from '../../services/auth/auth.service';
 
-export const authGuard: CanActivateFn = () => {
+export const adminGuard: CanActivateFn = () => {
   const authService = inject(Auth);
   const router = inject(Router);
 
@@ -14,8 +14,8 @@ export const authGuard: CanActivateFn = () => {
 
   return authService.getProfile().pipe(
     map((profile) => {
-      if (!profile.accepted) {
-        alert("В доступе отказано");
+      if (profile.role !== 'Администратор') {
+        router.navigate(['/dashboard']);
         return false;
       }
 

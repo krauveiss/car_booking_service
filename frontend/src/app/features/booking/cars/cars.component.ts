@@ -20,6 +20,7 @@ interface CarItem {
   isReservedByMe: boolean;
   canConfirm: boolean;
   canFinish: boolean;
+  canCancel: boolean;
 }
 
 @Component({
@@ -89,6 +90,18 @@ export class CarsComponent implements OnInit {
       },
       error: (err) => {
         this.errorMessage.set(err.error?.message || 'Не удалось завершить использование');
+      }
+    });
+  }
+
+  cancelReservation(car: CarItem): void {
+    this.http.post(`${environment.apiUrl}/booking/cars/${car.id}/cancel`, {}).subscribe({
+      next: () => {
+        this.successMessage.set('Бронь отменена');
+        this.loadCars();
+      },
+      error: (err) => {
+        this.errorMessage.set(err.error?.message || 'Не удалось отменить бронь');
       }
     });
   }

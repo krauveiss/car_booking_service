@@ -42,7 +42,8 @@
         <button class="btn-primary" *ngIf="car.status === 'free'" (click)="reserveCar(car)">Забронировать</button>
         <button class="btn-primary" *ngIf="car.canConfirm" (click)="confirmCar(car)">Подтвердить взятие</button>
         <button class="btn-primary" *ngIf="car.canFinish" (click)="finishCar(car)">Завершить использование</button>
-        <button class="btn-secondary" *ngIf="car.status !== 'free' && !car.canConfirm && !car.canFinish" disabled>{{ getStatusLabel(car.status) }}</button>
+        <button class="btn-secondary" *ngIf="car.canCancel" (click)="cancelReservation(car)">Отменить бронь</button>
+        <button class="btn-secondary" *ngIf="car.status !== 'free' && !car.canConfirm && !car.canFinish && !car.canCancel" disabled>{{ getStatusLabel(car.status) }}</button>
       </div>
     </article>
   </div>

@@ -38,16 +38,19 @@ export class Auth {
   login(cred: LoginRequest): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(`${environment.apiUrl}/auth/login`, cred).pipe(
       tap((response) => {
-        this.currentUser.set(response);
-        const cookieName = 'token';
-        const cookieValue = response.token;
-        const maxAge = 7 * 24 * 60 * 60;
+        if (response.accepted) {
 
-        document.cookie = `${cookieName}=${encodeURIComponent(cookieValue)}` +
-          `; max-age=${maxAge}` +
-          `; path=/` +
-          `; secure` +
-          `; SameSite=Strict`;
+          this.currentUser.set(response);
+          const cookieName = 'token';
+          const cookieValue = response.token;
+          const maxAge = 7 * 24 * 60 * 60;
+
+          document.cookie = `${cookieName}=${encodeURIComponent(cookieValue)}` +
+            `; max-age=${maxAge}` +
+            `; path=/` +
+            `; secure` +
+            `; SameSite=Strict`;
+        }
       })
     );
   }

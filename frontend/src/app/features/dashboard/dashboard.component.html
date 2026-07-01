@@ -3,6 +3,9 @@
     <div class="logo">Бронирование корпоративного транспорта</div>
     <div class="nav-actions">
       <button class="btn-secondary" routerLink="/profile">Мой профиль</button>
+      @if (isAdmin()) {
+        <button class="btn-secondary" routerLink="/admin">Админ-панель</button>
+      }
       <button class="btn-danger" (click)="onLogout()">Выйти</button>
     </div>
   </header>

@@ -1,0 +1,74 @@
+<div class="admin-page">
+  <header class="page-header">
+    <div>
+      <h1>Админский дашборд</h1>
+      <p>Управление пользователями и доступом</p>
+    </div>
+    <a routerLink="/dashboard" class="secondary-link">На главную</a>
+  </header>
+
+  <div class="status-block" *ngIf="errorMessage()">
+    <span>{{ errorMessage() }}</span>
+  </div>
+
+  <div class="status-block success" *ngIf="successMessage()">
+    <span>{{ successMessage() }}</span>
+  </div>
+
+  <section class="filters-card" [formGroup]="filterForm">
+    <input formControlName="search" placeholder="Поиск по логину" />
+    <select formControlName="accepted">
+      <option value="all">Все статусы</option>
+      <option value="true">Приняты</option>
+      <option value="false">Не приняты</option>
+    </select>
+    <button class="btn-primary" (click)="applyFilters()">Применить</button>
+  </section>
+
+  <div class="loading" *ngIf="loading()">Загрузка...</div>
+
+  <div class="table-wrap" *ngIf="!loading()">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Логин</th>
+          <th>Должность</th>
+          <th>Статус доступа</th>
+          <th>Роль</th>
+          <th>Дата регистрации</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let user of users()">
+          <td>{{ user.id }}</td>
+          <td>
+            <strong>{{ user.username }}</strong>
+          </td>
+          <td>
+            <input [(ngModel)]="user.position" (blur)="updateUser(user)" />
+          </td>
+          <td>
+            <label class="switch">
+              <input type="checkbox" [(ngModel)]="user.accepted" (change)="updateUser(user)" />
+              <span></span>
+            </label>
+          </td>
+          <td>
+            <select [(ngModel)]="user.role" (change)="updateUser(user)">
+              <option value="Сотрудник">Сотрудник</option>
+              <option value="Администратор">Администратор</option>
+            </select>
+          </td>
+          <td>{{ user.created_at | date:'dd.MM.yyyy HH:mm' }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pagination" *ngIf="meta().totalPages > 1">
+    <button *ngFor="let page of [].constructor(meta().totalPages); let i = index" (click)="changePage(i + 1)" [class.active]="meta().page === i + 1">
+      {{ i + 1 }}
+    </button>
+  </div>
+</div>

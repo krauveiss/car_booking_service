@@ -1,0 +1,76 @@
+$primary: #2563eb;
+$primary-hover: #1d4ed8;
+
+:host {
+  display: block;
+}
+
+.admin-dashboard-page {
+  min-height: 100vh;
+  padding: 24px;
+  background: #f8fafc;
+  font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+
+  h1 {
+    margin: 0 0 6px;
+    font-size: 28px;
+    font-weight: 700;
+  }
+
+  p {
+    margin: 0;
+    color: #64748b;
+  }
+}
+
+.secondary-link {
+  color: $primary;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+}
+
+.feature-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+
+  h2 {
+    margin: 0 0 8px;
+    font-size: 20px;
+  }
+
+  p {
+    margin: 0 0 16px;
+    color: #64748b;
+    line-height: 1.5;
+  }
+}
+
+.btn-primary {
+  background: $primary;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    background: $primary-hover;
+  }
+}

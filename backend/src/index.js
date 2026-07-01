@@ -50,6 +50,21 @@ db.run(`
   )
 `);
 
+db.run(`
+  CREATE TABLE IF NOT EXISTS booking_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    car_id INTEGER NOT NULL,
+    car_brand TEXT NOT NULL,
+    car_model TEXT NOT NULL,
+    registration_number TEXT NOT NULL,
+    action TEXT NOT NULL,
+    user_id INTEGER,
+    username TEXT,
+    details TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
 try {
   db.run("ALTER TABLE users ADD COLUMN accepted INTEGER NOT NULL DEFAULT 0");
   db.run("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'Сотрудник'");
@@ -164,11 +179,28 @@ function requireAccepted(req, res, next) {
 
 function refreshExpiredReservations() {
   const now = new Date().toISOString();
+  const expiredCars = db.exec(`SELECT id, brand, model, registration_number FROM cars WHERE status = 'reserved' AND expires_at IS NOT NULL AND expires_at <= '${now}'`);
   db.run(`
     UPDATE cars
     SET status = 'free', reserved_by = NULL, reserved_at = NULL, expires_at = NULL, updated_at = ?
     WHERE status = 'reserved' AND expires_at IS NOT NULL AND expires_at <= ?
   `, [now, now]);
+
+  if (expiredCars[0] && expiredCars[0].values.length) {
+    for (const row of expiredCars[0].values) {
+      const [id, brand, model, registrationNumber] = row;
+      db.run(`INSERT INTO booking_logs (car_id, car_brand, car_model, registration_number, action, details, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`, [id, brand, model, registrationNumber, 'expired', 'Reservation expired automatically', now]);
+    }
+  }
+}
+
+function logBookingAction({ car, action, userId, username, details }) {
+  const now = new Date().toISOString();
+  db.run(`
+    INSERT INTO booking_logs (car_id, car_brand, car_model, registration_number, action, user_id, username, details, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, [car.id, car.brand, car.model, car.registration_number, action, userId || null, username || null, details || '', now]);
+  saveDb();
 }
 
 app.post('/api/auth/register', (req, res) => {
@@ -255,6 +287,36 @@ app.get('/api/auth/me', authenticateToken, (req, res) => {
   });
 });
 
+app.get('/api/users/:id', authenticateToken, (req, res) => {
+  const userId = Number(req.params.id);
+
+  if (!Number.isInteger(userId)) {
+    return res.status(400).json({ message: 'Invalid user id' });
+  }
+
+  const requesterStmt = db.prepare('SELECT role FROM users WHERE id = $id');
+  const requester = requesterStmt.getAsObject({ $id: req.user.id });
+  requesterStmt.free();
+  const isAdmin = requester.role === 'Администратор';
+
+  if (Number(req.user.id) !== userId && !isAdmin) {
+    return res.status(403).json({ message: 'Forbidden' });
+  }
+
+  const stmt = db.prepare('SELECT id, username, accepted, role, position, created_at FROM users WHERE id = $id');
+  const user = stmt.getAsObject({ $id: userId });
+  stmt.free();
+
+  if (!user.id) {
+    return res.status(404).json({ message: 'User not found' });
+  }
+
+  return res.json({
+    ...user,
+    accepted: Boolean(user.accepted)
+  });
+});
+
 function requireRole(requiredRole) {
   return (req, res, next) => {
     if (!req.user) {
@@ -279,6 +341,7 @@ app.get('/api/admin/users', authenticateToken, requireRole('Администра
 
   const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
   const role = typeof req.query.role === 'string' ? req.query.role : '';
+  const accepted = req.query.accepted;
 
   let whereClauses = ['1=1'];
   let params = {};
@@ -290,6 +353,10 @@ app.get('/api/admin/users', authenticateToken, requireRole('Администра
   if (role) {
     whereClauses.push('role = $role');
     params['$role'] = role;
+  }
+  if (accepted === 'true' || accepted === 'false') {
+    whereClauses.push('accepted = $accepted');
+    params['$accepted'] = accepted === 'true' ? 1 : 0;
   }
 
   const whereSql = whereClauses.join(' AND ');
@@ -351,6 +418,39 @@ app.put('/api/admin/users/:id', authenticateToken, requireRole('Админист
   return res.json({ message: 'User updated successfully' });
 });
 
+app.get('/api/admin/booking-logs', authenticateToken, requireRole('Администратор'), (req, res) => {
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const limit = Math.max(1, Number(req.query.limit) || 20);
+  const offset = (page - 1) * limit;
+
+  const countStmt = db.prepare('SELECT COUNT(*) AS total FROM booking_logs');
+  const totalCount = countStmt.getAsObject().total;
+  countStmt.free();
+
+  const stmt = db.prepare(`
+    SELECT id, car_id, car_brand, car_model, registration_number, action, user_id, username, details, created_at
+    FROM booking_logs
+    ORDER BY id DESC
+    LIMIT $limit OFFSET $offset
+  `);
+
+  const data = [];
+  stmt.bind({ $limit: limit, $offset: offset });
+  while (stmt.step()) {
+    data.push(stmt.getAsObject());
+  }
+  stmt.free();
+
+  res.json({
+    data,
+    meta: {
+      total: totalCount,
+      page,
+      limit,
+      totalPages: Math.ceil(totalCount / limit)
+    }
+  });
+});
 
 app.get('/api/booking/cars', authenticateToken, requireAccepted, (req, res) => {
   refreshExpiredReservations();
@@ -374,7 +474,8 @@ app.get('/api/booking/cars', authenticateToken, requireAccepted, (req, res) => {
       status: car.status,
       isReservedByMe,
       canConfirm: car.status === 'reserved' && isReservedByMe && Boolean(expiresAt && expiresAt > now),
-      canFinish: car.status === 'busy' && (isReservedByMe || isAdmin)
+      canFinish: car.status === 'busy' && (isReservedByMe || isAdmin),
+      canCancel: car.status === 'reserved' && (isReservedByMe || isAdmin)
     });
   }
 
@@ -414,7 +515,52 @@ app.post('/api/booking/cars/:id/reserve', authenticateToken, requireAccepted, (r
   const updatedCar = updatedStmt.getAsObject({ $id: carId });
   updatedStmt.free();
 
+  logBookingAction({ car: updatedCar, action: 'reserved', userId: req.user.id, username: req.user.username, details: 'Vehicle reserved' });
+
   return res.json({ message: 'Car reserved successfully', car: updatedCar });
+});
+
+app.post('/api/booking/cars/:id/cancel', authenticateToken, requireAccepted, (req, res) => {
+  refreshExpiredReservations();
+
+  const carId = Number(req.params.id);
+  const stmt = db.prepare('SELECT * FROM cars WHERE id = $id');
+  const car = stmt.getAsObject({ $id: carId });
+  stmt.free();
+
+  if (!car.id) {
+    return res.status(404).json({ message: 'Car not found' });
+  }
+
+  if (car.status !== 'reserved') {
+    return res.status(409).json({ message: 'Car is not reserved' });
+  }
+
+  const userStmt = db.prepare('SELECT role FROM users WHERE id = $id');
+  const user = userStmt.getAsObject({ $id: req.user.id });
+  userStmt.free();
+  const isAdmin = user.role === 'Администратор';
+
+  if (Number(car.reserved_by) !== Number(req.user.id) && !isAdmin) {
+    return res.status(403).json({ message: 'You cannot cancel this reservation' });
+  }
+
+  const now = new Date().toISOString();
+  db.run(`
+    UPDATE cars
+    SET status = 'free', reserved_by = NULL, reserved_at = NULL, expires_at = NULL, updated_at = ?
+    WHERE id = ?
+  `, [now, carId]);
+
+  saveDb();
+
+  const updatedStmt = db.prepare('SELECT * FROM cars WHERE id = $id');
+  const updatedCar = updatedStmt.getAsObject({ $id: carId });
+  updatedStmt.free();
+
+  logBookingAction({ car: updatedCar, action: 'cancelled', userId: req.user.id, username: req.user.username, details: 'Reservation cancelled' });
+
+  return res.json({ message: 'Reservation cancelled', car: updatedCar });
 });
 
 app.post('/api/booking/cars/:id/confirm', authenticateToken, requireAccepted, (req, res) => {
@@ -455,6 +601,8 @@ app.post('/api/booking/cars/:id/confirm', authenticateToken, requireAccepted, (r
   const updatedCar = updatedStmt.getAsObject({ $id: carId });
   updatedStmt.free();
 
+  logBookingAction({ car: updatedCar, action: 'confirmed', userId: req.user.id, username: req.user.username, details: 'Reservation confirmed and vehicle taken' });
+
   return res.json({ message: 'Reservation confirmed', car: updatedCar });
 });
 
@@ -494,6 +642,8 @@ app.post('/api/booking/cars/:id/finish', authenticateToken, requireAccepted, (re
   const updatedStmt = db.prepare('SELECT * FROM cars WHERE id = $id');
   const updatedCar = updatedStmt.getAsObject({ $id: carId });
   updatedStmt.free();
+
+  logBookingAction({ car: updatedCar, action: 'finished', userId: req.user.id, username: req.user.username, details: 'Vehicle returned' });
 
   return res.json({ message: 'Trip finished', car: updatedCar });
 });

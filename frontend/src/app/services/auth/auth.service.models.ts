@@ -6,7 +6,8 @@ export interface RegisterRequest {
 export interface AuthResponse {
     id: string,
     username: string,
-    token: string
+    token: string,
+    accepted: boolean
 }
 
 export interface LoginRequest {

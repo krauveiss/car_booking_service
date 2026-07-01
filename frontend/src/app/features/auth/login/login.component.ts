@@ -36,6 +36,10 @@ export class Login {
 
       this.authService.login(cred).subscribe({
         next: (response) => {
+          if (!response.accepted) {
+            this.isLoading.set(false);
+            this.errorMessage.set("Аккаунт не подтвержден. Обратитесь к руководителю")
+          }
           this.router.navigate(['/dashboard']);
         },
         error: (err) => {

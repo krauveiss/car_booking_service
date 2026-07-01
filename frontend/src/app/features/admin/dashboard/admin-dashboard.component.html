@@ -1,0 +1,23 @@
+<div class="admin-dashboard-page">
+  <header class="page-header">
+    <div>
+      <h1>Админский дашборд</h1>
+      <p>Управление доступом, пользователями и логами бронирований</p>
+    </div>
+    <a routerLink="/dashboard" class="secondary-link">На главную</a>
+  </header>
+
+  <div class="cards-grid">
+    <article class="feature-card">
+      <h2>Пользователи</h2>
+      <p>Список, поиск, фильтр доступа и управление ролями</p>
+      <button class="btn-primary" (click)="goToUsers()">Открыть</button>
+    </article>
+
+    <article class="feature-card">
+      <h2>Логи бронирования</h2>
+      <p>Кто забронировал, подтвердил и завершил поездку</p>
+      <button class="btn-primary" (click)="goToBookingLogs()">Открыть</button>
+    </article>
+  </div>
+</div>
