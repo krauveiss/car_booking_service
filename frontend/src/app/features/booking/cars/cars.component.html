@@ -1,0 +1,49 @@
+<div class="cars-page">
+  <header class="page-header">
+    <div>
+      <h1>Автомобили</h1>
+      <p>Просмотр доступных машин и управление бронированием</p>
+    </div>
+    <div class="actions">
+      <a routerLink="/dashboard" class="secondary-link">На главную</a>
+    </div>
+  </header>
+
+  <div class="status-block" *ngIf="errorMessage()">
+    <span>{{ errorMessage() }}</span>
+  </div>
+
+  <div class="status-block success" *ngIf="successMessage()">
+    <span>{{ successMessage() }}</span>
+  </div>
+
+  <div class="loading" *ngIf="loading()">Загрузка...</div>
+
+  <div class="cars-grid" *ngIf="!loading()">
+    <article class="car-card" *ngFor="let car of cars()">
+      <div class="card-top">
+        <div>
+          <h2>{{ car.brand }} {{ car.model }}</h2>
+          <div class="plate">
+            <span class="plate-label">RUS</span>
+            <span class="plate-number">{{ car.registration_number }}</span>
+          </div>
+        </div>
+        <span class="status-badge" [ngClass]="car.status">{{ getStatusLabel(car.status) }}</span>
+      </div>
+
+      <div class="details">
+        <div><span>Цвет</span><strong>{{ car.color }}</strong></div>
+        <div><span>Мест</span><strong>{{ car.seats }}</strong></div>
+        <div><span>Назначение</span><strong>{{ car.purpose }}</strong></div>
+      </div>
+
+      <div class="card-actions">
+        <button class="btn-primary" *ngIf="car.status === 'free'" (click)="reserveCar(car)">Забронировать</button>
+        <button class="btn-primary" *ngIf="car.canConfirm" (click)="confirmCar(car)">Подтвердить взятие</button>
+        <button class="btn-primary" *ngIf="car.canFinish" (click)="finishCar(car)">Завершить использование</button>
+        <button class="btn-secondary" *ngIf="car.status !== 'free' && !car.canConfirm && !car.canFinish" disabled>{{ getStatusLabel(car.status) }}</button>
+      </div>
+    </article>
+  </div>
+</div>

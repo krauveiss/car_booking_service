@@ -16,12 +16,6 @@
         },
         "@schematics/angular:service": {
           "type": "service"
-        },
-        "@schematics/angular:guard": {
-          "type": "guard"
-        },
-        "@schematics/angular:interceptor": {
-          "type": "interceptor"
         }
       },
       "root": "",

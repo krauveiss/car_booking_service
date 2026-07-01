@@ -31,11 +31,49 @@ db.run(`
   )
 `);
 
+db.run(`
+  CREATE TABLE IF NOT EXISTS cars (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    brand TEXT NOT NULL,
+    model TEXT NOT NULL,
+    registration_number TEXT NOT NULL UNIQUE,
+    color TEXT NOT NULL,
+    seats INTEGER NOT NULL,
+    purpose TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'free',
+    reserved_by INTEGER,
+    reserved_at TEXT,
+    expires_at TEXT,
+    confirmed_at TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
 try {
   db.run("ALTER TABLE users ADD COLUMN accepted INTEGER NOT NULL DEFAULT 0");
   db.run("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'Сотрудник'");
   db.run("ALTER TABLE users ADD COLUMN position TEXT NOT NULL DEFAULT ''");
 } catch (e) { }
+
+try {
+  db.run("ALTER TABLE cars ADD COLUMN reserved_by INTEGER");
+  db.run("ALTER TABLE cars ADD COLUMN reserved_at TEXT");
+  db.run("ALTER TABLE cars ADD COLUMN expires_at TEXT");
+  db.run("ALTER TABLE cars ADD COLUMN confirmed_at TEXT");
+} catch (e) { }
+
+const seededCars = db.exec("SELECT COUNT(*) AS count FROM cars")[0].values[0][0];
+if (!seededCars) {
+  db.run(`
+    INSERT INTO cars (brand, model, registration_number, color, seats, purpose, status) VALUES
+    ('Toyota', 'Camry', 'A123BC', 'Белый', 5, 'Офис', 'free'),
+    ('Honda', 'Civic', 'B456DE', 'Черный', 5, 'Служебный', 'free'),
+    ('Volkswagen', 'Passat', 'C789FG', 'Синий', 5, 'Командировка', 'blocked'),
+    ('Hyundai', 'Elantra', 'D012HI', 'Красный', 5, 'Пассажиры', 'free'),
+    ('Kia', 'Rio', 'E345JK', 'Серый', 4, 'Город', 'free')
+  `);
+}
 
 saveDb();
 
@@ -106,6 +144,31 @@ function authenticateToken(req, res, next) {
 
   req.user = decoded;
   next();
+}
+
+function requireAccepted(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  const stmt = db.prepare('SELECT accepted FROM users WHERE id = $id');
+  const user = stmt.getAsObject({ $id: req.user.id });
+  stmt.free();
+
+  if (!Boolean(user.accepted)) {
+    return res.status(403).json({ message: 'Access denied' });
+  }
+
+  next();
+}
+
+function refreshExpiredReservations() {
+  const now = new Date().toISOString();
+  db.run(`
+    UPDATE cars
+    SET status = 'free', reserved_by = NULL, reserved_at = NULL, expires_at = NULL, updated_at = ?
+    WHERE status = 'reserved' AND expires_at IS NOT NULL AND expires_at <= ?
+  `, [now, now]);
 }
 
 app.post('/api/auth/register', (req, res) => {
@@ -190,6 +253,249 @@ app.get('/api/auth/me', authenticateToken, (req, res) => {
     ...user,
     accepted: Boolean(user.accepted)
   });
+});
+
+function requireRole(requiredRole) {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    const stmt = db.prepare('SELECT role FROM users WHERE id = $id');
+    const user = stmt.getAsObject({ $id: req.user.id });
+    stmt.free();
+
+    if (user.role !== requiredRole) {
+      return res.status(403).json({ message: 'Forbidden: Admin access required' });
+    }
+
+    next();
+  };
+}
+app.get('/api/admin/users', authenticateToken, requireRole('Администратор'), (req, res) => {
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const limit = Math.max(1, Number(req.query.limit) || 10);
+  const offset = (page - 1) * limit;
+
+  const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
+  const role = typeof req.query.role === 'string' ? req.query.role : '';
+
+  let whereClauses = ['1=1'];
+  let params = {};
+
+  if (search) {
+    whereClauses.push('username LIKE $search');
+    params['$search'] = `%${search}%`;
+  }
+  if (role) {
+    whereClauses.push('role = $role');
+    params['$role'] = role;
+  }
+
+  const whereSql = whereClauses.join(' AND ');
+
+
+  const countStmt = db.prepare(`SELECT COUNT(*) as total FROM users WHERE ${whereSql}`);
+  const totalCount = countStmt.getAsObject(params).total;
+  countStmt.free();
+
+  const dataStmt = db.prepare(`
+    SELECT id, username, accepted, role, position, created_at 
+    FROM users 
+    WHERE ${whereSql}
+    ORDER BY id DESC
+    LIMIT $limit OFFSET $offset
+  `);
+
+  const users = [];
+  dataStmt.bind({ ...params, $limit: limit, $offset: offset });
+  while (dataStmt.step()) {
+    const user = dataStmt.getAsObject();
+    user.accepted = Boolean(user.accepted);
+    users.push(user);
+  }
+  dataStmt.free();
+
+  return res.json({
+    data: users,
+    meta: {
+      total: totalCount,
+      page,
+      limit,
+      totalPages: Math.ceil(totalCount / limit)
+    }
+  });
+});
+
+
+app.put('/api/admin/users/:id', authenticateToken, requireRole('Администратор'), (req, res) => {
+  const userId = Number(req.params.id);
+  const { role, accepted, position } = req.body;
+
+  const checkStmt = db.prepare('SELECT id FROM users WHERE id = $id');
+  const exists = checkStmt.getAsObject({ $id: userId }).id;
+  checkStmt.free();
+
+  if (!exists) {
+    return res.status(404).json({ message: 'User not found' });
+  }
+
+  db.run(`
+    UPDATE users 
+    SET role = ?, accepted = ?, position = ?
+    WHERE id = ?
+  `, [role, accepted ? 1 : 0, position || '', userId]);
+
+  saveDb();
+
+  return res.json({ message: 'User updated successfully' });
+});
+
+
+app.get('/api/booking/cars', authenticateToken, requireAccepted, (req, res) => {
+  refreshExpiredReservations();
+
+  const stmt = db.prepare('SELECT * FROM cars ORDER BY id');
+  const cars = [];
+
+  while (stmt.step()) {
+    const car = stmt.getAsObject();
+    const now = Date.now();
+    const expiresAt = car.expires_at ? new Date(car.expires_at).getTime() : null;
+    const isReservedByMe = Number(car.reserved_by) === Number(req.user.id);
+
+    const userStmt = db.prepare('SELECT role FROM users WHERE id = $id');
+    const user = userStmt.getAsObject({ $id: req.user.id });
+    userStmt.free();
+    const isAdmin = user.role === 'Администратор';
+
+    cars.push({
+      ...car,
+      status: car.status,
+      isReservedByMe,
+      canConfirm: car.status === 'reserved' && isReservedByMe && Boolean(expiresAt && expiresAt > now),
+      canFinish: car.status === 'busy' && (isReservedByMe || isAdmin)
+    });
+  }
+
+  stmt.free();
+  res.json({ data: cars });
+});
+
+app.post('/api/booking/cars/:id/reserve', authenticateToken, requireAccepted, (req, res) => {
+  refreshExpiredReservations();
+
+  const carId = Number(req.params.id);
+  const stmt = db.prepare('SELECT * FROM cars WHERE id = $id');
+  const car = stmt.getAsObject({ $id: carId });
+  stmt.free();
+
+  if (!car.id) {
+    return res.status(404).json({ message: 'Car not found' });
+  }
+
+  if (car.status !== 'free') {
+    return res.status(409).json({ message: 'Car is not available for reservation' });
+  }
+
+  const reservedAt = new Date().toISOString();
+  const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+  const now = new Date().toISOString();
+
+  db.run(`
+    UPDATE cars
+    SET status = 'reserved', reserved_by = ?, reserved_at = ?, expires_at = ?, updated_at = ?
+    WHERE id = ?
+  `, [req.user.id, reservedAt, expiresAt, now, carId]);
+
+  saveDb();
+
+  const updatedStmt = db.prepare('SELECT * FROM cars WHERE id = $id');
+  const updatedCar = updatedStmt.getAsObject({ $id: carId });
+  updatedStmt.free();
+
+  return res.json({ message: 'Car reserved successfully', car: updatedCar });
+});
+
+app.post('/api/booking/cars/:id/confirm', authenticateToken, requireAccepted, (req, res) => {
+  refreshExpiredReservations();
+
+  const carId = Number(req.params.id);
+  const stmt = db.prepare('SELECT * FROM cars WHERE id = $id');
+  const car = stmt.getAsObject({ $id: carId });
+  stmt.free();
+
+  if (!car.id) {
+    return res.status(404).json({ message: 'Car not found' });
+  }
+
+  if (car.status !== 'reserved') {
+    return res.status(409).json({ message: 'Car is not reserved' });
+  }
+
+  if (Number(car.reserved_by) !== Number(req.user.id)) {
+    return res.status(403).json({ message: 'You cannot confirm this reservation' });
+  }
+
+  if (car.expires_at && new Date(car.expires_at).getTime() < Date.now()) {
+    return res.status(409).json({ message: 'Reservation expired' });
+  }
+
+  const now = new Date().toISOString();
+
+  db.run(`
+    UPDATE cars
+    SET status = 'busy', confirmed_at = ?, updated_at = ?, expires_at = NULL
+    WHERE id = ?
+  `, [now, now, carId]);
+
+  saveDb();
+
+  const updatedStmt = db.prepare('SELECT * FROM cars WHERE id = $id');
+  const updatedCar = updatedStmt.getAsObject({ $id: carId });
+  updatedStmt.free();
+
+  return res.json({ message: 'Reservation confirmed', car: updatedCar });
+});
+
+app.post('/api/booking/cars/:id/finish', authenticateToken, requireAccepted, (req, res) => {
+  const carId = Number(req.params.id);
+  const stmt = db.prepare('SELECT * FROM cars WHERE id = $id');
+  const car = stmt.getAsObject({ $id: carId });
+  stmt.free();
+
+  if (!car.id) {
+    return res.status(404).json({ message: 'Car not found' });
+  }
+
+  if (car.status !== 'busy') {
+    return res.status(409).json({ message: 'Car is not in use' });
+  }
+
+  const userStmt = db.prepare('SELECT role FROM users WHERE id = $id');
+  const user = userStmt.getAsObject({ $id: req.user.id });
+  userStmt.free();
+  const isAdmin = user.role === 'Администратор';
+
+  if (Number(car.reserved_by) !== Number(req.user.id) && !isAdmin) {
+    return res.status(403).json({ message: 'You cannot finish this trip' });
+  }
+
+  const now = new Date().toISOString();
+
+  db.run(`
+    UPDATE cars
+    SET status = 'free', reserved_by = NULL, reserved_at = NULL, expires_at = NULL, confirmed_at = NULL, updated_at = ?
+    WHERE id = ?
+  `, [now, carId]);
+
+  saveDb();
+
+  const updatedStmt = db.prepare('SELECT * FROM cars WHERE id = $id');
+  const updatedCar = updatedStmt.getAsObject({ $id: carId });
+  updatedStmt.free();
+
+  return res.json({ message: 'Trip finished', car: updatedCar });
 });
 
 app.get('/api/health', (req, res) => {

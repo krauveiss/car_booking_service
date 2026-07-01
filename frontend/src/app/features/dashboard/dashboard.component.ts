@@ -1,6 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { Auth } from '../../services/auth.service';
+import { Auth } from '../../services/auth/auth.service';
 
 @Component({
   selector: 'app-dashboard',

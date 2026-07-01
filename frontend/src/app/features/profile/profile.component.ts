@@ -1,8 +1,8 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { Auth } from '../../services/auth.service';
-import { UserProfile } from '../../services/auth.service.models';
+import { Auth } from '../../services/auth/auth.service';
+import { UserProfile } from '../../services/auth/auth.service.models';
 
 @Component({
   selector: 'app-profile',
